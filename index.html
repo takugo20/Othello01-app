@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Othello AI</title>
+  <style>
+    :root {
+      --bg: #0f2419;
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-strong: rgba(255, 255, 255, 0.14);
+      --line: rgba(255, 255, 255, 0.18);
+      --text: #f4f7f2;
+      --muted: rgba(244, 247, 242, 0.7);
+      --board: #0f8a4a;
+      --board-dark: #08713b;
+      --black: #101010;
+      --white: #f3f1e8;
+      --accent: #d4b15f;
+      --danger: #d45f5f;
+      --shadow: rgba(0, 0, 0, 0.32);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 38%),
+        var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+    }
+
+    button,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(100vw, 920px);
+      min-height: 100dvh;
+      padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .topbar,
+    .bottombar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .segGroup {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 24px var(--shadow);
+    }
+
+    .seg,
+    .actionBtn {
+      appearance: none;
+      border: 0;
+      color: var(--text);
+      background: transparent;
+      min-height: 36px;
+      padding: 0 13px;
+      border-radius: 999px;
+      cursor: pointer;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .seg.active {
+      background: var(--panel-strong);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+
+    .actionBtn {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 24px var(--shadow);
+    }
+
+    .actionBtn:active,
+    .seg:active {
+      transform: translateY(1px);
+    }
+
+    .actionBtn:disabled,
+    .seg:disabled {
+      opacity: 0.45;
+      cursor: default;
+      transform: none;
+    }
+
+    .actionBtn.danger {
+      color: #ffe5e5;
+      border-color: rgba(212, 95, 95, 0.45);
+    }
+
+    .boardArea {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .board {
+      width: min(94vw, 72dvh, 620px);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      padding: 8px;
+      gap: 4px;
+      border-radius: 22px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 35%),
+        var(--board-dark);
+      box-shadow:
+        0 24px 60px var(--shadow),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.16),
+        inset 0 0 0 8px rgba(0, 0, 0, 0.14);
+      position: relative;
+    }
+
+    .cell {
+      appearance: none;
+      border: 0;
+      margin: 0;
+      padding: 0;
+      border-radius: 11px;
+      background: var(--board);
+      box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      display: grid;
+      place-items: center;
+      position: relative;
+      cursor: default;
+      touch-action: manipulation;
+    }
+
+    .cell.legal {
+      cursor: pointer;
+    }
+
+    .cell.legal::after {
+      content: "";
+      width: 28%;
+      height: 28%;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.28);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+    }
+
+    @media (hover: hover) {
+      .cell.legal:hover::after {
+        width: 42%;
+        height: 42%;
+        background: rgba(255, 255, 255, 0.36);
+      }
+    }
+
+    .disc {
+      width: 78%;
+      height: 78%;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translateZ(0);
+      animation: pop 150ms ease-out;
+    }
+
+    .disc.black {
+      background:
+        radial-gradient(circle at 35% 30%, #474747, #171717 38%, #060606 76%);
+      box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.36),
+        inset 0 2px 2px rgba(255, 255, 255, 0.18);
+    }
+
+    .disc.white {
+      background:
+        radial-gradient(circle at 35% 30%, #ffffff, #efede5 48%, #c7c2b6 100%);
+      box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.22),
+        inset 0 2px 2px rgba(255, 255, 255, 0.88);
+    }
+
+    @keyframes pop {
+      from { transform: scale(0.72); opacity: 0.7; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .scoreWrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 5px;
+      border-radius: 999px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 24px var(--shadow);
+    }
+
+    .scoreItem {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 36px;
+      padding: 0 11px;
+      border-radius: 999px;
+      color: var(--muted);
+    }
+
+    .scoreItem.turn {
+      color: var(--text);
+      background: rgba(212, 177, 95, 0.16);
+      box-shadow: inset 0 0 0 1px rgba(212, 177, 95, 0.28);
+    }
+
+    .scoreItem.aiThinking {
+      animation: breathe 900ms ease-in-out infinite alternate;
+    }
+
+    @keyframes breathe {
+      from { opacity: 0.62; }
+      to { opacity: 1; }
+    }
+
+    .miniDisc {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+
+    .miniDisc.black {
+      background: var(--black);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.22);
+    }
+
+    .miniDisc.white {
+      background: var(--white);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7);
+    }
+
+    .owner {
+      font-size: 12px;
+      color: var(--muted);
+      min-width: 24px;
+    }
+
+    .resultOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(2, 10, 7, 0.58);
+      backdrop-filter: blur(6px);
+      z-index: 10;
+    }
+
+    .resultOverlay.show {
+      display: flex;
+    }
+
+    .resultBox {
+      width: min(88vw, 320px);
+      border-radius: 24px;
+      background: rgba(20, 38, 29, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .resultMain {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .resultScore {
+      font-size: 18px;
+      color: var(--muted);
+    }
+
+    .resultBox .actionBtn {
+      width: 100%;
+      min-height: 42px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    @media (max-width: 520px) {
+      .app {
+        gap: 8px;
+      }
+
+      .seg,
+      .actionBtn {
+        min-height: 34px;
+        padding: 0 11px;
+        font-size: 14px;
+      }
+
+      .board {
+        width: min(94vw, 68dvh);
+        padding: 6px;
+        gap: 3px;
+        border-radius: 18px;
+      }
+
+      .cell {
+        border-radius: 8px;
+      }
+
+      .scoreItem {
+        min-height: 34px;
+        padding: 0 9px;
+      }
+    }
+
+    @media (max-height: 650px) {
+      .board {
+        width: min(92vw, 62dvh, 560px);
+      }
+
+      .seg,
+      .actionBtn,
+      .scoreItem {
+        min-height: 31px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="Othello AI game">
+    <section class="topbar" aria-label="settings">
+      <div class="segGroup" aria-label="AI difficulty">
+        <button class="seg active" type="button" data-difficulty="easy">åç´</button>
+        <button class="seg" type="button" data-difficulty="normal">ä¸­ç´</button>
+        <button class="seg" type="button" data-difficulty="hard">ä¸ç´</button>
+      </div>
+      <div class="segGroup" aria-label="player color">
+        <button class="seg active" type="button" data-color="black">é»</button>
+        <button class="seg" type="button" data-color="white">ç½</button>
+      </div>
+      <button class="actionBtn" id="newGameBtn" type="button">æ°è¦</button>
+      <button class="actionBtn" id="undoBtn" type="button">æ»ã</button>
+      <button class="actionBtn danger" id="resignBtn" type="button">æäº</button>
+    </section>
+
+    <section class="boardArea" aria-label="board area">
+      <div class="board" id="board" aria-label="othello board"></div>
+    </section>
+
+    <section class="bottombar" aria-label="score">
+      <div class="scoreWrap">
+        <div class="scoreItem" id="blackScoreItem">
+          <span class="miniDisc black" aria-hidden="true"></span>
+          <strong id="blackCount">2</strong>
+          <span class="owner" id="blackOwner">èªå</span>
+        </div>
+        <div class="scoreItem" id="whiteScoreItem">
+          <span class="miniDisc white" aria-hidden="true"></span>
+          <strong id="whiteCount">2</strong>
+          <span class="owner" id="whiteOwner">AI</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="resultOverlay" id="resultOverlay" role="dialog" aria-modal="true" aria-label="result">
+    <div class="resultBox">
+      <div class="resultMain" id="resultMain">åã¡</div>
+      <div class="resultScore" id="resultScore">é» 34 - ç½ 30</div>
+      <button class="actionBtn" id="resultNewBtn" type="button">æ°è¦</button>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    const EMPTY = 0;
+    const BLACK = 1;
+    const WHITE = 2;
+    const BOARD_SIZE = 8;
+    const DIRECTIONS = [
+      [-1, -1], [-1, 0], [-1, 1],
+      [0, -1],           [0, 1],
+      [1, -1],  [1, 0],  [1, 1],
+    ];
+
+    const BASE_POSITION_SCORE = [
+      [120, -25, 24,  8,  8, 24, -25, 120],
+      [-25, -55, -6, -6, -6, -6, -55, -25],
+      [24,   -6, 15,  4,  4, 15,  -6,  24],
+      [8,    -6,  4,  3,  3,  4,  -6,   8],
+      [8,    -6,  4,  3,  3,  4,  -6,   8],
+      [24,   -6, 15,  4,  4, 15,  -6,  24],
+      [-25, -55, -6, -6, -6, -6, -55, -25],
+      [120, -25, 24,  8,  8, 24, -25, 120],
+    ];
+
+    const CORNERS = [
+      [0, 0], [0, 7], [7, 0], [7, 7],
+    ];
+
+    const DANGER_NEAR_CORNERS = [
+      { corner: [0, 0], x: [[1, 1]], c: [[0, 1], [1, 0]] },
+      { corner: [0, 7], x: [[1, 6]], c: [[0, 6], [1, 7]] },
+      { corner: [7, 0], x: [[6, 1]], c: [[6, 0], [7, 1]] },
+      { corner: [7, 7], x: [[6, 6]], c: [[6, 7], [7, 6]] },
+    ];
+
+    let board = [];
+    let currentPlayer = BLACK;
+    let humanColor = BLACK;
+    let aiColor = WHITE;
+    let difficulty = "easy";
+    let history = [];
+    let gameOver = false;
+    let thinking = false;
+    let gameToken = 0;
+    let audioCtx = null;
+
+    const boardEl = document.getElementById("board");
+    const blackCountEl = document.getElementById("blackCount");
+    const whiteCountEl = document.getElementById("whiteCount");
+    const blackOwnerEl = document.getElementById("blackOwner");
+    const whiteOwnerEl = document.getElementById("whiteOwner");
+    const blackScoreItemEl = document.getElementById("blackScoreItem");
+    const whiteScoreItemEl = document.getElementById("whiteScoreItem");
+    const newGameBtn = document.getElementById("newGameBtn");
+    const undoBtn = document.getElementById("undoBtn");
+    const resignBtn = document.getElementById("resignBtn");
+    const resultOverlay = document.getElementById("resultOverlay");
+    const resultMainEl = document.getElementById("resultMain");
+    const resultScoreEl = document.getElementById("resultScore");
+    const resultNewBtn = document.getElementById("resultNewBtn");
+
+    function createInitialBoard() {
+      const next = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(EMPTY));
+      next[3][3] = WHITE;
+      next[3][4] = BLACK;
+      next[4][3] = BLACK;
+      next[4][4] = WHITE;
+      return next;
+    }
+
+    function opponent(player) {
+      return player === BLACK ? WHITE : BLACK;
+    }
+
+    function inBounds(row, col) {
+      return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
+    }
+
+    function cloneBoard(source) {
+      return source.map(row => row.slice());
+    }
+
+    function countStones(source) {
+      let black = 0;
+      let white = 0;
+      let empty = 0;
+
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          if (source[row][col] === BLACK) black++;
+          else if (source[row][col] === WHITE) white++;
+          else empty++;
+        }
+      }
+
+      return { black, white, empty };
+    }
+
+    function getFlips(source, row, col, player) {
+      if (!inBounds(row, col) || source[row][col] !== EMPTY) return [];
+
+      const rival = opponent(player);
+      const flips = [];
+
+      for (const [dr, dc] of DIRECTIONS) {
+        let r = row + dr;
+        let c = col + dc;
+        const line = [];
+
+        while (inBounds(r, c) && source[r][c] === rival) {
+          line.push([r, c]);
+          r += dr;
+          c += dc;
+        }
+
+        if (line.length > 0 && inBounds(r, c) && source[r][c] === player) {
+          flips.push(...line);
+        }
+      }
+
+      return flips;
+    }
+
+    function getLegalMoves(source, player) {
+      const moves = [];
+
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          if (source[row][col] !== EMPTY) continue;
+          const flips = getFlips(source, row, col, player);
+          if (flips.length > 0) {
+            moves.push({ row, col, flips });
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    function applyMove(source, move, player) {
+      source[move.row][move.col] = player;
+      for (const [row, col] of move.flips) {
+        source[row][col] = player;
+      }
+    }
+
+    function boardAfterMove(source, move, player) {
+      const next = cloneBoard(source);
+      applyMove(next, move, player);
+      return next;
+    }
+
+    function legalKey(row, col) {
+      return `${row},${col}`;
+    }
+
+    function renderBoard() {
+      const legalMoves = currentPlayer === humanColor && !gameOver && !thinking
+        ? getLegalMoves(board, humanColor)
+        : [];
+      const legalMap = new Map(legalMoves.map(move => [legalKey(move.row, move.col), move]));
+
+      boardEl.innerHTML = "";
+
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "cell";
+          cell.dataset.row = String(row);
+          cell.dataset.col = String(col);
+
+          const value = board[row][col];
+          const move = legalMap.get(legalKey(row, col));
+
+          if (move) {
+            cell.classList.add("legal");
+            cell.disabled = false;
+            cell.setAttribute("aria-label", `put ${humanColor === BLACK ? "black" : "white"} at ${row + 1}-${col + 1}`);
+          } else {
+            cell.disabled = value !== EMPTY || thinking || currentPlayer !== humanColor || gameOver;
+            cell.setAttribute("aria-label", `cell ${row + 1}-${col + 1}`);
+          }
+
+          if (value !== EMPTY) {
+            const disc = document.createElement("span");
+            disc.className = `disc ${value === BLACK ? "black" : "white"}`;
+            cell.appendChild(disc);
+          }
+
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function renderScore() {
+      const counts = countStones(board);
+      blackCountEl.textContent = String(counts.black);
+      whiteCountEl.textContent = String(counts.white);
+      blackOwnerEl.textContent = humanColor === BLACK ? "èªå" : "AI";
+      whiteOwnerEl.textContent = humanColor === WHITE ? "èªå" : "AI";
+
+      blackScoreItemEl.classList.toggle("turn", !gameOver && currentPlayer === BLACK);
+      whiteScoreItemEl.classList.toggle("turn", !gameOver && currentPlayer === WHITE);
+      blackScoreItemEl.classList.toggle("aiThinking", thinking && aiColor === BLACK);
+      whiteScoreItemEl.classList.toggle("aiThinking", thinking && aiColor === WHITE);
+    }
+
+    function renderControls() {
+      document.querySelectorAll("[data-difficulty]").forEach(button => {
+        button.classList.toggle("active", button.dataset.difficulty === difficulty);
+        button.disabled = thinking;
+      });
+
+      document.querySelectorAll("[data-color]").forEach(button => {
+        const isBlack = button.dataset.color === "black";
+        button.classList.toggle("active", (isBlack && humanColor === BLACK) || (!isBlack && humanColor === WHITE));
+        button.disabled = thinking;
+      });
+
+      undoBtn.disabled = thinking || history.length === 0;
+      resignBtn.disabled = thinking || gameOver;
+    }
+
+    function render() {
+      renderBoard();
+      renderScore();
+      renderControls();
+    }
+
+    function pushHistory() {
+      history.push({
+        board: cloneBoard(board),
+        currentPlayer,
+      });
+    }
+
+    function restoreSnapshot(snapshot) {
+      board = cloneBoard(snapshot.board);
+      currentPlayer = snapshot.currentPlayer;
+      gameOver = false;
+      thinking = false;
+      hideResult();
+    }
+
+    function initGame() {
+      gameToken++;
+      board = createInitialBoard();
+      currentPlayer = BLACK;
+      aiColor = opponent(humanColor);
+      history = [];
+      gameOver = false;
+      thinking = false;
+      hideResult();
+      render();
+      processTurn();
+    }
+
+    function processTurn() {
+      if (gameOver) return;
+
+      let guard = 0;
+      while (guard < 4) {
+        guard++;
+        const moves = getLegalMoves(board, currentPlayer);
+        if (moves.length > 0) break;
+
+        const other = opponent(currentPlayer);
+        const otherMoves = getLegalMoves(board, other);
+        if (otherMoves.length === 0) {
+          finishGame("normal");
+          return;
+        }
+
+        currentPlayer = other;
+        playSound("pass");
+      }
+
+      render();
+
+      if (!gameOver && currentPlayer === aiColor) {
+        requestAiMove();
+      }
+    }
+
+    function requestAiMove() {
+      const token = gameToken;
+      thinking = true;
+      render();
+
+      window.setTimeout(() => {
+        if (token !== gameToken || gameOver || currentPlayer !== aiColor) return;
+
+        const moves = getLegalMoves(board, aiColor);
+        if (moves.length > 0) {
+          const move = chooseAiMove(board, aiColor, difficulty);
+          if (move) {
+            applyMove(board, move, aiColor);
+            playMoveSound(move.flips.length);
+            currentPlayer = opponent(currentPlayer);
+          }
+        }
+
+        thinking = false;
+        render();
+        window.setTimeout(processTurn, 70);
+      }, 260);
+    }
+
+    function handleBoardClick(event) {
+      const cell = event.target.closest(".cell");
+      if (!cell || gameOver || thinking || currentPlayer !== humanColor) return;
+
+      unlockAudio();
+
+      const row = Number(cell.dataset.row);
+      const col = Number(cell.dataset.col);
+      const flips = getFlips(board, row, col, humanColor);
+      if (flips.length === 0) return;
+
+      pushHistory();
+      const move = { row, col, flips };
+      applyMove(board, move, humanColor);
+      playMoveSound(flips.length);
+      currentPlayer = opponent(currentPlayer);
+      render();
+      processTurn();
+    }
+
+    function undoMove() {
+      if (thinking || history.length === 0) return;
+      unlockAudio();
+      playSound("button");
+      const snapshot = history.pop();
+      gameToken++;
+      restoreSnapshot(snapshot);
+      render();
+      processTurn();
+    }
+
+    function resignGame() {
+      if (thinking || gameOver) return;
+      unlockAudio();
+      playSound("button");
+      if (!window.confirm("æäºãã¾ããï¼")) return;
+
+      gameOver = true;
+      showResult({ resigned: true, winner: aiColor });
+      render();
+      playSound("lose");
+    }
+
+    function finishGame(reason) {
+      gameOver = true;
+      const counts = countStones(board);
+      let winner = null;
+      if (counts.black > counts.white) winner = BLACK;
+      if (counts.white > counts.black) winner = WHITE;
+
+      showResult({ reason, winner });
+      render();
+
+      if (winner === null) playSound("draw");
+      else if (winner === humanColor) playSound("win");
+      else playSound("lose");
+    }
+
+    function showResult(result) {
+      const counts = countStones(board);
+      resultScoreEl.textContent = `é» ${counts.black} - ç½ ${counts.white}`;
+
+      if (result.resigned) {
+        resultMainEl.textContent = "æäº";
+      } else if (result.winner === null) {
+        resultMainEl.textContent = "å¼ãåã";
+      } else if (result.winner === humanColor) {
+        resultMainEl.textContent = "åã¡";
+      } else {
+        resultMainEl.textContent = "è² ã";
+      }
+
+      resultOverlay.classList.add("show");
+    }
+
+    function hideResult() {
+      resultOverlay.classList.remove("show");
+    }
+
+    function chooseAiMove(source, player, level) {
+      const moves = getLegalMoves(source, player);
+      if (moves.length === 0) return null;
+
+      if (level === "easy") return chooseEasyMove(source, player, moves);
+      if (level === "normal") return chooseNormalMove(source, player, moves);
+      return chooseHardMove(source, player, moves);
+    }
+
+    function chooseEasyMove(source, player, moves) {
+      const corners = moves.filter(move => isCorner(move.row, move.col));
+      if (corners.length > 0) return randomItem(corners);
+      return randomItem(moves);
+    }
+
+    function chooseNormalMove(source, player, moves) {
+      let bestMove = moves[0];
+      let bestScore = -Infinity;
+
+      for (const move of moves) {
+        const next = boardAfterMove(source, move, player);
+        let score = scoreMoveBasic(source, next, move, player);
+        score += Math.random() * 6;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = move;
+        }
+      }
+
+      return bestMove;
+    }
+
+    function chooseHardMove(source, player, moves) {
+      const empty = countStones(source).empty;
+      const corners = moves.filter(move => isCorner(move.row, move.col));
+      if (corners.length > 0) return chooseNormalMove(source, player, corners);
+
+      let bestMove = chooseNormalMove(source, player, moves);
+      const timeLimit = empty <= 12 ? 1800 : empty <= 22 ? 1200 : 850;
+      const deadline = performance.now() + timeLimit;
+      const targetDepth = getHardDepth(empty);
+
+      for (let depth = 1; depth <= targetDepth; depth++) {
+        try {
+          const result = searchRoot(source, player, depth, deadline);
+          if (result && result.move) bestMove = result.move;
+        } catch (error) {
+          break;
+        }
+      }
+
+      return bestMove;
+    }
+
+    function getHardDepth(empty) {
+      if (empty <= 8) return 64;
+      if (empty <= 12) return 12;
+      if (empty <= 18) return 8;
+      if (empty <= 34) return 6;
+      return 5;
+    }
+
+    function searchRoot(source, player, depth, deadline) {
+      const moves = orderMoves(source, getLegalMoves(source, player), player, player, true);
+      let bestMove = moves[0];
+      let bestScore = -Infinity;
+      let alpha = -Infinity;
+      const beta = Infinity;
+
+      for (const move of moves) {
+        if (performance.now() > deadline) throw new Error("timeout");
+        const next = boardAfterMove(source, move, player);
+        const score = minimax(next, opponent(player), depth - 1, alpha, beta, player, deadline);
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = move;
+        }
+
+        alpha = Math.max(alpha, bestScore);
+      }
+
+      return { move: bestMove, score: bestScore };
+    }
+
+    function minimax(source, player, depth, alpha, beta, rootPlayer, deadline) {
+      if (performance.now() > deadline) throw new Error("timeout");
+
+      const moves = getLegalMoves(source, player);
+      const rival = opponent(player);
+      const rivalMoves = moves.length === 0 ? getLegalMoves(source, rival) : null;
+
+      if (moves.length === 0 && rivalMoves.length === 0) {
+        return finalScore(source, rootPlayer);
+      }
+
+      if (depth <= 0) {
+        return evaluateBoard(source, rootPlayer);
+      }
+
+      if (moves.length === 0) {
+        return minimax(source, rival, depth - 1, alpha, beta, rootPlayer, deadline);
+      }
+
+      const maximizing = player === rootPlayer;
+      const ordered = orderMoves(source, moves, player, rootPlayer, maximizing);
+
+      if (maximizing) {
+        let value = -Infinity;
+        for (const move of ordered) {
+          const next = boardAfterMove(source, move, player);
+          value = Math.max(value, minimax(next, rival, depth - 1, alpha, beta, rootPlayer, deadline));
+          alpha = Math.max(alpha, value);
+          if (alpha >= beta) break;
+        }
+        return value;
+      }
+
+      let value = Infinity;
+      for (const move of ordered) {
+        const next = boardAfterMove(source, move, player);
+        value = Math.min(value, minimax(next, rival, depth - 1, alpha, beta, rootPlayer, deadline));
+        beta = Math.min(beta, value);
+        if (alpha >= beta) break;
+      }
+      return value;
+    }
+
+    function orderMoves(source, moves, player, rootPlayer, descending) {
+      return moves.slice().sort((a, b) => {
+        const nextA = boardAfterMove(source, a, player);
+        const nextB = boardAfterMove(source, b, player);
+        const scoreA = quickOrderScore(source, nextA, a, player, rootPlayer);
+        const scoreB = quickOrderScore(source, nextB, b, player, rootPlayer);
+        return descending ? scoreB - scoreA : scoreA - scoreB;
+      });
+    }
+
+    function quickOrderScore(before, after, move, player, rootPlayer) {
+      const sign = player === rootPlayer ? 1 : -1;
+      return sign * scoreMoveBasic(before, after, move, player);
+    }
+
+    function scoreMoveBasic(before, after, move, player) {
+      const rival = opponent(player);
+      let score = 0;
+
+      score += adjustedPositionScore(before, move.row, move.col, player) * 8;
+      score += move.flips.length * 3;
+
+      if (isCorner(move.row, move.col)) score += 1500;
+      if (isDangerSquare(move.row, move.col, before)) score -= 680;
+
+      const myMobility = getLegalMoves(after, player).length;
+      const rivalMobility = getLegalMoves(after, rival).length;
+      score += (myMobility - rivalMobility) * 28;
+
+      const myCorners = countCorners(after, player);
+      const rivalCorners = countCorners(after, rival);
+      score += (myCorners - rivalCorners) * 850;
+
+      return score;
+    }
+
+    function evaluateBoard(source, player) {
+      const rival = opponent(player);
+      const counts = countStones(source);
+
+      const playerMoves = getLegalMoves(source, player);
+      const rivalMoves = getLegalMoves(source, rival);
+      if (playerMoves.length === 0 && rivalMoves.length === 0) {
+        return finalScore(source, player);
+      }
+
+      const playerCount = player === BLACK ? counts.black : counts.white;
+      const rivalCount = rival === BLACK ? counts.black : counts.white;
+      const empty = counts.empty;
+      let score = 0;
+
+      const cornerDiff = countCorners(source, player) - countCorners(source, rival);
+      score += cornerDiff * 9800;
+
+      const mobilityDiff = playerMoves.length - rivalMoves.length;
+      score += mobilityDiff * (empty > 18 ? 115 : 52);
+
+      score += positionScoreDiff(source, player) * (empty > 18 ? 7 : 3);
+      score += cornerDangerScore(source, player) * 430;
+      score += (frontierCount(source, rival) - frontierCount(source, player)) * (empty > 18 ? 42 : 18);
+      score += stableEdgeDiff(source, player) * 300;
+
+      const discDiff = playerCount - rivalCount;
+      if (empty > 42) score -= discDiff * 9;
+      else if (empty > 14) score += discDiff * 4;
+      else score += discDiff * 190;
+
+      if (empty <= 12) {
+        score += parityScore(source, player) * 70;
+      }
+
+      return score;
+    }
+
+    function finalScore(source, player) {
+      const counts = countStones(source);
+      const mine = player === BLACK ? counts.black : counts.white;
+      const theirs = player === BLACK ? counts.white : counts.black;
+      const diff = mine - theirs;
+      if (diff > 0) return 1000000 + diff * 1000;
+      if (diff < 0) return -1000000 + diff * 1000;
+      return 0;
+    }
+
+    function positionScoreDiff(source, player) {
+      const rival = opponent(player);
+      let total = 0;
+
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          const value = source[row][col];
+          if (value === EMPTY) continue;
+          const score = adjustedPositionScore(source, row, col, value);
+          if (value === player) total += score;
+          if (value === rival) total -= score;
+        }
+      }
+
+      return total;
+    }
+
+    function adjustedPositionScore(source, row, col, player) {
+      let score = BASE_POSITION_SCORE[row][col];
+
+      for (const group of DANGER_NEAR_CORNERS) {
+        const [cr, cc] = group.corner;
+        const cornerValue = source[cr][cc];
+
+        for (const [xr, xc] of group.x) {
+          if (row === xr && col === xc) {
+            if (cornerValue === EMPTY) score -= 80;
+            else if (cornerValue === player) score += 22;
+            else score -= 22;
+          }
+        }
+
+        for (const [sr, sc] of group.c) {
+          if (row === sr && col === sc) {
+            if (cornerValue === EMPTY) score -= 46;
+            else if (cornerValue === player) score += 16;
+            else score -= 16;
+          }
+        }
+      }
+
+      return score;
+    }
+
+    function cornerDangerScore(source, player) {
+      const rival = opponent(player);
+      let total = 0;
+
+      for (const group of DANGER_NEAR_CORNERS) {
+        const [cr, cc] = group.corner;
+        if (source[cr][cc] !== EMPTY) continue;
+
+        for (const [row, col] of group.x) {
+          if (source[row][col] === player) total -= 3;
+          if (source[row][col] === rival) total += 3;
+        }
+
+        for (const [row, col] of group.c) {
+          if (source[row][col] === player) total -= 2;
+          if (source[row][col] === rival) total += 2;
+        }
+      }
+
+      return total;
+    }
+
+    function frontierCount(source, player) {
+      let total = 0;
+
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          if (source[row][col] !== player) continue;
+
+          let isFrontier = false;
+          for (const [dr, dc] of DIRECTIONS) {
+            const r = row + dr;
+            const c = col + dc;
+            if (inBounds(r, c) && source[r][c] === EMPTY) {
+              isFrontier = true;
+              break;
+            }
+          }
+
+          if (isFrontier) total++;
+        }
+      }
+
+      return total;
+    }
+
+    function stableEdgeDiff(source, player) {
+      return stableEdgeCount(source, player) - stableEdgeCount(source, opponent(player));
+    }
+
+    function stableEdgeCount(source, player) {
+      let total = 0;
+
+      total += countStableFromCorner(source, player, 0, 0, 0, 1);
+      total += countStableFromCorner(source, player, 0, 0, 1, 0);
+      total += countStableFromCorner(source, player, 0, 7, 0, -1);
+      total += countStableFromCorner(source, player, 0, 7, 1, 0);
+      total += countStableFromCorner(source, player, 7, 0, 0, 1);
+      total += countStableFromCorner(source, player, 7, 0, -1, 0);
+      total += countStableFromCorner(source, player, 7, 7, 0, -1);
+      total += countStableFromCorner(source, player, 7, 7, -1, 0);
+
+      return total;
+    }
+
+    function countStableFromCorner(source, player, row, col, dr, dc) {
+      if (source[row][col] !== player) return 0;
+      let total = 0;
+      let r = row;
+      let c = col;
+
+      while (inBounds(r, c) && source[r][c] === player) {
+        total++;
+        r += dr;
+        c += dc;
+      }
+
+      return total;
+    }
+
+    function parityScore(source, player) {
+      const emptyRegions = countEmptyRegions(source);
+      const oddRegions = emptyRegions.filter(size => size % 2 === 1).length;
+      const evenRegions = emptyRegions.length - oddRegions;
+      return oddRegions - evenRegions;
+    }
+
+    function countEmptyRegions(source) {
+      const seen = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(false));
+      const regions = [];
+
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          if (source[row][col] !== EMPTY || seen[row][col]) continue;
+
+          let size = 0;
+          const stack = [[row, col]];
+          seen[row][col] = true;
+
+          while (stack.length > 0) {
+            const [r, c] = stack.pop();
+            size++;
+
+            for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+              const nr = r + dr;
+              const nc = c + dc;
+              if (!inBounds(nr, nc) || seen[nr][nc] || source[nr][nc] !== EMPTY) continue;
+              seen[nr][nc] = true;
+              stack.push([nr, nc]);
+            }
+          }
+
+          regions.push(size);
+        }
+      }
+
+      return regions;
+    }
+
+    function countCorners(source, player) {
+      let total = 0;
+      for (const [row, col] of CORNERS) {
+        if (source[row][col] === player) total++;
+      }
+      return total;
+    }
+
+    function isCorner(row, col) {
+      return (row === 0 || row === 7) && (col === 0 || col === 7);
+    }
+
+    function isDangerSquare(row, col, source) {
+      for (const group of DANGER_NEAR_CORNERS) {
+        const [cr, cc] = group.corner;
+        if (source[cr][cc] !== EMPTY) continue;
+        for (const [r, c] of [...group.x, ...group.c]) {
+          if (row === r && col === c) return true;
+        }
+      }
+      return false;
+    }
+
+    function randomItem(items) {
+      return items[Math.floor(Math.random() * items.length)];
+    }
+
+    function unlockAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        audioCtx = new AudioContext();
+      }
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function playTone(freq, start, duration, type, gainValue) {
+      if (!audioCtx) return;
+
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(gainValue, audioCtx.currentTime + start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + start + duration);
+      oscillator.connect(gain).connect(audioCtx.destination);
+      oscillator.start(audioCtx.currentTime + start);
+      oscillator.stop(audioCtx.currentTime + start + duration + 0.02);
+    }
+
+    function playSound(kind) {
+      if (!audioCtx) return;
+
+      if (kind === "place") {
+        playTone(180, 0, 0.08, "sine", 0.045);
+      } else if (kind === "flip") {
+        playTone(360, 0.02, 0.09, "triangle", 0.035);
+      } else if (kind === "pass") {
+        playTone(240, 0, 0.08, "sine", 0.025);
+        playTone(180, 0.08, 0.1, "sine", 0.02);
+      } else if (kind === "win") {
+        playTone(440, 0, 0.09, "triangle", 0.035);
+        playTone(554, 0.09, 0.09, "triangle", 0.035);
+        playTone(659, 0.18, 0.16, "triangle", 0.04);
+      } else if (kind === "lose") {
+        playTone(300, 0, 0.1, "sine", 0.028);
+        playTone(230, 0.11, 0.16, "sine", 0.025);
+      } else if (kind === "draw") {
+        playTone(350, 0, 0.1, "triangle", 0.025);
+        playTone(350, 0.13, 0.1, "triangle", 0.025);
+      } else if (kind === "button") {
+        playTone(520, 0, 0.05, "sine", 0.02);
+      }
+    }
+
+    function playMoveSound(flipCount) {
+      playSound("place");
+      if (flipCount > 0) {
+        window.setTimeout(() => playSound("flip"), 55);
+      }
+    }
+
+    function setDifficulty(nextDifficulty) {
+      if (thinking) return;
+      unlockAudio();
+      playSound("button");
+      difficulty = nextDifficulty;
+      initGame();
+    }
+
+    function setHumanColor(colorName) {
+      if (thinking) return;
+      unlockAudio();
+      playSound("button");
+      humanColor = colorName === "black" ? BLACK : WHITE;
+      initGame();
+    }
+
+    document.querySelectorAll("[data-difficulty]").forEach(button => {
+      button.addEventListener("click", () => setDifficulty(button.dataset.difficulty));
+    });
+
+    document.querySelectorAll("[data-color]").forEach(button => {
+      button.addEventListener("click", () => setHumanColor(button.dataset.color));
+    });
+
+    boardEl.addEventListener("click", handleBoardClick);
+
+    newGameBtn.addEventListener("click", () => {
+      unlockAudio();
+      playSound("button");
+      initGame();
+    });
+
+    undoBtn.addEventListener("click", undoMove);
+    resignBtn.addEventListener("click", resignGame);
+
+    resultNewBtn.addEventListener("click", () => {
+      unlockAudio();
+      playSound("button");
+      initGame();
+    });
+
+    document.addEventListener("dblclick", event => {
+      event.preventDefault();
+    }, { passive: false });
+
+    initGame();
+  </script>
+</body>
+</html>
