@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" >
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Othello AI</title>
   <style>
@@ -364,17 +365,17 @@
   <main class="app" aria-label="Othello AI game">
     <section class="topbar" aria-label="settings">
       <div class="segGroup" aria-label="AI difficulty">
-        <button class="seg active" type="button" data-difficulty="easy">åç´</button>
-        <button class="seg" type="button" data-difficulty="normal">ä¸­ç´</button>
-        <button class="seg" type="button" data-difficulty="hard">ä¸ç´</button>
+        <button class="seg active" type="button" data-difficulty="easy">&#21021;&#32026;</button>
+        <button class="seg" type="button" data-difficulty="normal">&#20013;&#32026;</button>
+        <button class="seg" type="button" data-difficulty="hard">&#19978;&#32026;</button>
       </div>
       <div class="segGroup" aria-label="player color">
-        <button class="seg active" type="button" data-color="black">é»</button>
-        <button class="seg" type="button" data-color="white">ç½</button>
+        <button class="seg active" type="button" data-color="black">&#40658;</button>
+        <button class="seg" type="button" data-color="white">&#30333;</button>
       </div>
-      <button class="actionBtn" id="newGameBtn" type="button">æ°è¦</button>
-      <button class="actionBtn" id="undoBtn" type="button">æ»ã</button>
-      <button class="actionBtn danger" id="resignBtn" type="button">æäº</button>
+      <button class="actionBtn" id="newGameBtn" type="button">&#26032;&#35215;</button>
+      <button class="actionBtn" id="undoBtn" type="button">&#25147;&#12427;</button>
+      <button class="actionBtn danger" id="resignBtn" type="button">&#25237;&#20102;</button>
     </section>
 
     <section class="boardArea" aria-label="board area">
@@ -386,7 +387,7 @@
         <div class="scoreItem" id="blackScoreItem">
           <span class="miniDisc black" aria-hidden="true"></span>
           <strong id="blackCount">2</strong>
-          <span class="owner" id="blackOwner">èªå</span>
+          <span class="owner" id="blackOwner">&#33258;&#20998;</span>
         </div>
         <div class="scoreItem" id="whiteScoreItem">
           <span class="miniDisc white" aria-hidden="true"></span>
@@ -399,9 +400,9 @@
 
   <div class="resultOverlay" id="resultOverlay" role="dialog" aria-modal="true" aria-label="result">
     <div class="resultBox">
-      <div class="resultMain" id="resultMain">åã¡</div>
-      <div class="resultScore" id="resultScore">é» 34 - ç½ 30</div>
-      <button class="actionBtn" id="resultNewBtn" type="button">æ°è¦</button>
+      <div class="resultMain" id="resultMain">&#21213;&#12385;</div>
+      <div class="resultScore" id="resultScore">&#40658; 34 - &#30333; 30</div>
+      <button class="actionBtn" id="resultNewBtn" type="button">&#26032;&#35215;</button>
     </div>
   </div>
 
@@ -604,8 +605,8 @@
       const counts = countStones(board);
       blackCountEl.textContent = String(counts.black);
       whiteCountEl.textContent = String(counts.white);
-      blackOwnerEl.textContent = humanColor === BLACK ? "èªå" : "AI";
-      whiteOwnerEl.textContent = humanColor === WHITE ? "èªå" : "AI";
+      blackOwnerEl.textContent = humanColor === BLACK ? "\u81EA\u5206" : "AI";
+      whiteOwnerEl.textContent = humanColor === WHITE ? "\u81EA\u5206" : "AI";
 
       blackScoreItemEl.classList.toggle("turn", !gameOver && currentPlayer === BLACK);
       whiteScoreItemEl.classList.toggle("turn", !gameOver && currentPlayer === WHITE);
@@ -749,7 +750,7 @@
       if (thinking || gameOver) return;
       unlockAudio();
       playSound("button");
-      if (!window.confirm("æäºãã¾ããï¼")) return;
+      if (!window.confirm("\u6295\u4E86\u3057\u307E\u3059\u304B\uFF1F")) return;
 
       gameOver = true;
       showResult({ resigned: true, winner: aiColor });
@@ -774,16 +775,16 @@
 
     function showResult(result) {
       const counts = countStones(board);
-      resultScoreEl.textContent = `é» ${counts.black} - ç½ ${counts.white}`;
+      resultScoreEl.textContent = `\u9ED2 ${counts.black} - \u767D ${counts.white}`;
 
       if (result.resigned) {
-        resultMainEl.textContent = "æäº";
+        resultMainEl.textContent = "\u6295\u4E86";
       } else if (result.winner === null) {
-        resultMainEl.textContent = "å¼ãåã";
+        resultMainEl.textContent = "\u5F15\u304D\u5206\u3051";
       } else if (result.winner === humanColor) {
-        resultMainEl.textContent = "åã¡";
+        resultMainEl.textContent = "\u52DD\u3061";
       } else {
-        resultMainEl.textContent = "è² ã";
+        resultMainEl.textContent = "\u8CA0\u3051";
       }
 
       resultOverlay.classList.add("show");
